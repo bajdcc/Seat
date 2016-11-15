@@ -3,12 +3,12 @@ extends layout
 block content
   div(class='container')
     div(class='row')
-      div(class='col s12 m4 l8')
+      div(class='col s12 m12 l6')
         h1(class='shadow')= '座位安排表'
         div(id='list', class='collection z-depth-1')
   script(type="text/javascript").
-    $.getJSON("/api/classes", function(data) {
-      for (var d in data) {
-        $("<a href='/class/"+d+"' class='collection-item'>"+data[d]+"</a>").appendTo('#list');
-      }
+    $.getJSON("/api?query={classes{id,name}}", function(data) {
+      $.each(data.data.classes, function(i, data) {
+        $("<a href='/class/"+data.id+"' class='collection-item'>"+data.name+"</a>").appendTo('#list');
+      });
     });

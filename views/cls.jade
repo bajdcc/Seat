@@ -5,7 +5,7 @@ block content
     div(class='row')
       div(id='main', class='col s12')
         span(id='id', class='hide')= name
-        h1(class='shadow')= 'Class #' + name
+        h1(id='class_name' class='shadow')= 'Class #' + name
         div(class='row')
           div(class='col s6')
             table(class='responsive-table hoverable')
@@ -29,17 +29,17 @@ block content
   script(type="text/javascript").
     var id = $('#id').html();
     id = parseInt(id).toString();
-    $.getJSON("/api/students/"+id, function (data) {
-      $.each(data, function (i, d) {
+    $.getJSON("/api?query={class(id:"+id+"){name,student{id,sid,name},seat{id,x,y,gx,gy,owner}}}", function (data) {
+      var cls = data.data.class;
+      if (!cls) return $("#main").html("<h1 class=\"shadow\">Class does not exist.</h1>");
+      $("#class_name").html(cls.name);
+      $.each(cls.student, function (i, d) {
         $("<tr><td>"+d.id+"</td><td>"+d.sid+"</td><td>"+d.name+"</td></tr>").appendTo('#stu_tb');
+      });
+      $.each(cls.seat, function (i, d) {
+        $("<tr><td>" + d.id + "</td><td>" + d.x + "</td><td>" + d.y + "</td><td>" + d.gx + "</td><td>" + d.gy + "</td><td>" +
+          d.owner.join(',') + "</td></tr>").appendTo('#seat_tb');
       });
     }).error(function (err) {
       $("#main").html(err.responseText);
     });
-    $.getJSON("/api/seats/"+id, function (data) {
-      $.each(data, function (i, d) {
-        $("<tr><td>"+d.id+"</td><td>"+d.x+"</td><td>"+d.y+"</td><td>"+d.gx+"</td><td>"+d.gy+"</td><td>"+
-                d.owner.toString()+"</td></tr>").appendTo('#seat_tb');
-      });
-    });
-

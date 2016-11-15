@@ -1,8 +1,8 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 
 /* CLASS UI */
-router.get('/:id(\\d+)', function (req, res, next) {
+router.get('/:id(\\d+)', (req, res, next) => {
     res.render('cls', {name: req.params.id});
 });
 
