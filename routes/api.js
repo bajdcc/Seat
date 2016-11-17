@@ -10,6 +10,8 @@ const classes = root.classes;
 const db = new alasql.Database();
 const cids = {};
 
+db.exec('CREATE TABLE students (id SERIAL, cid INT, sid INT, name STRING)');
+
 for (let c in classes) {
     let cd = parseInt(c);
     let cls = classes[c];
@@ -19,55 +21,29 @@ for (let c in classes) {
     logger.info('Loading class #' + cd + ' -> ' + cls.name);
     db.exec('CREATE TABLE ' + stuName + ' (id SERIAL, sid STRING, name STRING)');
     for (let stu in cls.students) {
-        db.tables[stuName].data.push(
-            {
-                id: stu,
-                sid: stu,
-                name: cls.students[stu].name
-            }
-        );
+        db.tables[stuName].data.push({
+            id: stu,
+            sid: cls.students[stu].sid,
+            name: cls.students[stu].name
+        });
+        db.tables["students"].data.push({
+            cid: cd,
+            sid: stu,
+            name: cls.students[stu].name
+        });
     }
     db.exec('CREATE TABLE ' + seatName + ' (id SERIAL, x NUMBER, y NUMBER, gx INT, gy INT, owner STRING)');
     for (let seat in cls.seats) {
-        db.tables[seatName].data.push(
-            {
-                id: seat,
-                x: cls.seats[seat].x,
-                y: cls.seats[seat].y,
-                gx: cls.seats[seat].gx,
-                gy: cls.seats[seat].gy,
-                owner: cls.seats[seat].owner
-            }
-        );
+        db.tables[seatName].data.push({
+            id: seat,
+            x: cls.seats[seat].x,
+            y: cls.seats[seat].y,
+            gx: cls.seats[seat].gx,
+            gy: cls.seats[seat].gy,
+            owner: cls.seats[seat].owner
+        });
     }
 }
-
-/* API */
-router.get('/classes', (req, res, next) => {
-    res.send(JSON.stringify(cids, 1));
-});
-
-router.get('/students/:id(\\d+)', (req, res, next) => {
-    let id = parseInt(req.params.id);
-    if (!cids.hasOwnProperty(id)) {
-        let err = new Error('Not Found');
-        err.status = 404;
-        return next(err);
-    }
-    let r = db.exec('SELECT * FROM cls_stu_' + req.params.id + ' ');
-    res.send(JSON.stringify(r, 1));
-});
-
-router.get('/seats/:id(\\d+)', (req, res, next) => {
-    let id = parseInt(req.params.id);
-    if (!cids.hasOwnProperty(id)) {
-        let err = new Error('Not Found');
-        err.status = 404;
-        return next(err);
-    }
-    let r = db.exec('SELECT * FROM cls_seat_' + req.params.id + ' ');
-    res.send(JSON.stringify(r, 1));
-});
 
 // GraphQL Declaration
 

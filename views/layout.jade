@@ -7,6 +7,31 @@ html
     link(rel='stylesheet', href='/css/materialize.min.css')
     link(rel='stylesheet', href='/css/style.css')
     script(type='text/javascript', src='/js/jquery.min.js')
+    script(type='text/javascript', src='/js/vue.min.js')
     script(type='text/javascript', src='/js/materialize.min.js')
   body
+    .navbar-fixed
+      nav
+        .nav-wrapper
+          a.brand-logo.center(href='/') Seat
+          a.button-collapse.show-on-large.waves-effect(href="#" data-activates="mobile")
+            i.mdi-navigation-menu
+          ul.left.hide-on-med-and-down
+            li.waves-effect
+              a(href="/")
+                i.mdi-action-home
+            li.waves-effect
+              .input-field
+                input#search(type="text", required)
+                label(for="search")
+                  i.mdi-action-search
+          ul#mobile.side-nav
+            li.waves-effect
+              a(href="/")
+                i.mdi-action-home
+            li.waves-effect
+              a(href="/")
+                i.mdi-action-search
+    script(type="text/javascript").
+        $(".button-collapse").sideNav();
     block content

@@ -1,14 +1,18 @@
 extends layout
 
 block content
-  div(class='container')
-    div(class='row')
-      div(class='col s12 m12 l6')
-        h1(class='shadow')= '座位安排表'
-        div(id='list', class='collection z-depth-1')
+  .container
+    .row
+      .col.s12.m12.l6
+        h1.shadow 座位安排表
+        #list.collection.z-depth-1
+          a.collection-item.waves-effect(v-for='cls in classes', :href="'/class/'+cls.id")= '{{cls.name}}'
   script(type="text/javascript").
-    $.getJSON("/api?query={classes{id,name}}", function(data) {
-      $.each(data.data.classes, function(i, data) {
-        $("<a href='/class/"+data.id+"' class='collection-item'>"+data.name+"</a>").appendTo('#list');
+      $.getJSON("/api?query={classes{id,name}}", function (data) {
+          var app = new Vue({
+              el: '#list',
+              data: {
+                  classes: data.data.classes
+              }
+          });
       });
-    });

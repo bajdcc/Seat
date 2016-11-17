@@ -1,45 +1,57 @@
 extends layout
 
 block content
-  div(class='container')
-    div(class='row')
-      div(id='main', class='col s12')
-        span(id='id', class='hide')= name
-        h1(id='class_name' class='shadow')= 'Class #' + name
-        div(class='row')
-          div(class='col s6')
-            table(class='responsive-table hoverable')
+  .container
+    .row
+      #main.col.s12
+        #id.hide= name
+        h1.shadow= '{{class_name}}'
+        .row
+          .col.s6
+            table.responsive-table.hoverable
               thead
                 tr
-                  th(data-field="id")= '编号'
-                  th(data-field="sid")= '学号'
-                  th(data-field="name")= '姓名'
-              tbody(id='stu_tb')
-          div(class='col s6')
-            table(class='responsive-table hoverable')
+                  th(data-field="id") 编号
+                  th(data-field="sid") 学号
+                  th(data-field="name") 姓名
+              tbody
+                tr(v-for='stu in cls.student')
+                  td {{stu.id}}
+                  td {{stu.sid}}
+                  td {{stu.name}}
+          .col.s6
+            table.responsive-table.hoverable
               thead
                 tr
-                  th(data-field="id")= '编号'
-                  th(data-field="x")= 'X'
-                  th(data-field="y")= 'Y'
-                  th(data-field="gx")= 'GX'
-                  th(data-field="gy")= 'GY'
-                  th(data-field="owner")= '学生'
-              tbody(id='seat_tb')
+                  th(data-field="id") 编号
+                  th(data-field="x") X
+                  th(data-field="y") Y
+                  th(data-field="gx") GX
+                  th(data-field="gy")  GY
+                  th(data-field="owner") 学生
+              tbody
+                tr(v-for='seat in cls.seat')
+                  td {{seat.id}}
+                  td {{seat.x}}
+                  td {{seat.y}}
+                  td {{seat.gx}}
+                  td {{seat.gy}}
+                  td {{seat.owner.join(",")}}
   script(type="text/javascript").
-    var id = $('#id').html();
-    id = parseInt(id).toString();
-    $.getJSON("/api?query={class(id:"+id+"){name,student{id,sid,name},seat{id,x,y,gx,gy,owner}}}", function (data) {
-      var cls = data.data.class;
-      if (!cls) return $("#main").html("<h1 class=\"shadow\">Class does not exist.</h1>");
-      $("#class_name").html(cls.name);
-      $.each(cls.student, function (i, d) {
-        $("<tr><td>"+d.id+"</td><td>"+d.sid+"</td><td>"+d.name+"</td></tr>").appendTo('#stu_tb');
+      var id = $('#id').html();
+      id = parseInt(id).toString();
+      $.getJSON("/api?query={class(id:" + id +
+          "){name,student{id,sid,name},seat{id,x,y,gx,gy,owner}}}", function (data) {
+          var cls = data.data.class;
+          if (!cls) return $("#main").html("<h1 class=\"shadow\">Class does not exist.</h1>");
+          document.title = cls.name;
+          var app = new Vue({
+              el: '#main',
+              data: {
+                  class_name: cls.name,
+                  cls: cls
+              }
+          });
+      }).error(function (err) {
+          $("#main").html(err.responseText);
       });
-      $.each(cls.seat, function (i, d) {
-        $("<tr><td>" + d.id + "</td><td>" + d.x + "</td><td>" + d.y + "</td><td>" + d.gx + "</td><td>" + d.gy + "</td><td>" +
-          d.owner.join(',') + "</td></tr>").appendTo('#seat_tb');
-      });
-    }).error(function (err) {
-      $("#main").html(err.responseText);
-    });
