@@ -10,7 +10,8 @@ const classes = root.classes;
 const db = new alasql.Database();
 const cids = {};
 
-db.exec('CREATE TABLE students (id SERIAL, cid INT, sid INT, name STRING)');
+db.exec('CREATE TABLE classes (id INT PRIMARY KEY, name STRING)');
+db.exec('CREATE TABLE students (id INT AUTO_INCREMENT PRIMARY KEY, cid INT, sid STRING, name STRING)');
 
 for (let c in classes) {
     let cd = parseInt(c);
@@ -19,20 +20,24 @@ for (let c in classes) {
     let stuName = 'cls_stu_' + cd;
     let seatName = 'cls_seat_' + cd;
     logger.info('Loading class #' + cd + ' -> ' + cls.name);
-    db.exec('CREATE TABLE ' + stuName + ' (id SERIAL, sid STRING, name STRING)');
+    db.tables["classes"].data.push({
+        id: cd,
+        name: cls.name
+    });
+    db.exec('CREATE TABLE ' + stuName + ' (id INT PRIMARY KEY, sid STRING, name STRING)');
     for (let stu in cls.students) {
         db.tables[stuName].data.push({
             id: stu,
-            sid: cls.students[stu].sid,
+            sid: cls.students[stu].id,
             name: cls.students[stu].name
         });
-        db.tables["students"].data.push({
+        db.exec('INSERT INTO students VALUES ?', [{
             cid: cd,
-            sid: stu,
+            sid: cls.students[stu].id,
             name: cls.students[stu].name
-        });
+        }]);
     }
-    db.exec('CREATE TABLE ' + seatName + ' (id SERIAL, x NUMBER, y NUMBER, gx INT, gy INT, owner STRING)');
+    db.exec('CREATE TABLE ' + seatName + ' (id INT PRIMARY KEY, x NUMBER, y NUMBER, gx INT, gy INT, owner STRING)');
     for (let seat in cls.seats) {
         db.tables[seatName].data.push({
             id: seat,
@@ -67,6 +72,9 @@ const StudentType = new GraphQLObjectType({
     fields: () => ({
         id: {
             type: new GraphQLNonNull(GraphQLID)
+        },
+        cid: {
+            type: GraphQLString
         },
         sid: {
             type: GraphQLString
@@ -168,6 +176,19 @@ const queryType = new GraphQLObjectType({
                     return [];
                 }
                 return db.exec('SELECT * FROM cls_stu_' + args.id + ' ');
+            }
+        },
+        studentsByName: {
+            type: new GraphQLList(StudentType),
+            description: 'Get students by name',
+            args: {
+                name: {
+                    type: GraphQLString
+                }
+            },
+            resolve: (_, args) => {
+                return db.exec('SELECT s.id,s.sid,s.name,c.name AS cid FROM students AS s ' +
+                    'LEFT JOIN classes AS c ON s.cid = c.id WHERE s.name LIKE "%' + args.name + '%" ');
             }
         },
         seats: {

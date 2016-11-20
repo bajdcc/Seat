@@ -7,13 +7,13 @@ html
     link(rel='stylesheet', href='/css/materialize.min.css')
     link(rel='stylesheet', href='/css/style.css')
     script(type='text/javascript', src='/js/jquery.min.js')
-    script(type='text/javascript', src='/js/vue.min.js')
+    script(type='text/javascript', src='/js/vue.js')
     script(type='text/javascript', src='/js/materialize.min.js')
   body
     .navbar-fixed
       nav
         .nav-wrapper
-          a.brand-logo.center(href='/') Seat
+          a.brand-logo.center(href='/')= title
           a.button-collapse.show-on-large.waves-effect(href="#" data-activates="mobile")
             i.mdi-navigation-menu
           ul.left.hide-on-med-and-down
@@ -22,7 +22,7 @@ html
                 i.mdi-action-home
             li.waves-effect
               .input-field
-                input#search(type="text", required)
+                input#search(type="text", required, v-model="search",:readonly="!enable")
                 label(for="search")
                   i.mdi-action-search
           ul#mobile.side-nav
@@ -33,5 +33,98 @@ html
               a(href="/")
                 i.mdi-action-search
     script(type="text/javascript").
-        $(".button-collapse").sideNav();
+        function closeModal() {
+            modal.$data.popup = false;
+            search.$data.enable = true;
+        }
+        function searching() {
+            var val = $('#search').val();
+            if (!val) return;
+            $.getJSON("/api?query={studentsByName(name:\"" + val +
+                "\"){id,cid,sid,name}}", function (data) {
+                var students = data.data.studentsByName;
+                if (!students || !students.length) {
+                    modal.$data.title = "没有找到：" + val;
+                    modal.$data.students = [];
+                    modal.$data.show = show;
+                }
+                else {
+                    modal.$data.title = val;
+                    modal.$data.students = students;
+                    modal.$data.popup = true;
+                    modal.$data.show = true;
+                }
+            }).error(function (err) {
+                modal.$data.title = "Error";
+                modal.$data.students = [];
+                modal.$data.show = false;
+            });
+        }
+        $(document).ready(function () {
+            $(".button-collapse").sideNav();
+            search = new Vue({
+                el: '#search',
+                data: {
+                    search: '',
+                    enable: true
+                },
+                watch: {
+                    search: 'change'
+                },
+                methods: {
+                    change: function (curVal, oldVal) {
+                        if (curVal !== oldVal) {
+                            if (curVal) {
+                                searching();
+                            }
+                            else if (modal.$data.popup) {
+                                search.$data.enable = false;
+                                $('#modal').closeModal({
+                                    complete: closeModal
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+            modal = new Vue({
+                el: '#modal',
+                data: {
+                    title: '',
+                    students: [],
+                    popup: false,
+                    show: true
+                },
+                watch: {
+                    popup: 'openModal'
+                },
+                methods: {
+                    openModal: function (curVal, oldVal) {
+                        if (!oldVal && curVal) {
+                            $('#modal').openModal({
+                                complete: closeModal
+                            });
+                        }
+                    }
+                }
+            });
+        });
     block content
+    #modal.modal.modal-fixed-footer
+      .modal-content
+        h1.shadow {{title}}
+        table.responsive-table.hoverable(:class="{'hide': !show}")
+          thead
+            tr
+              th(data-field="id") 编号
+              th(data-field="name") 姓名
+              th(data-field="sid") 学号
+              th(data-field="cid") 班级
+          tbody
+            tr(v-for='stu in students')
+              td {{stu.id}}
+              td {{stu.name}}
+              td {{stu.sid}}
+              td {{stu.cid}}
+      .modal-footer
+        a.modal-action.modal-close.waves-effect.waves-green.btn-flat(href='#') 关闭
