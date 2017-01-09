@@ -7,49 +7,80 @@ block content
         #id.hide= name
         h1.shadow= '{{class_name}}'
         .row
-          .col.s6
-            table.responsive-table.hoverable
+          .col.s4
+            table.responsive-table.hoverable.bordered.striped
               thead
                 tr
-                  th(data-field="id") 编号
                   th(data-field="sid") 学号
                   th(data-field="name") 姓名
+                  th(data-field="sex") 性别
+                  th(data-field="seat") 座位
               tbody
-                tr(v-for='stu in cls.student')
-                  td {{stu.id}}
+                tr(v-for='stu in cls.student', :id="'s'+stu.sid")
                   td {{stu.sid}}
-                  td {{stu.name}}
-          .col.s6
-            table.responsive-table.hoverable
-              thead
-                tr
-                  th(data-field="id") 编号
-                  th(data-field="x") X
-                  th(data-field="y") Y
-                  th(data-field="gx") GX
-                  th(data-field="gy")  GY
-                  th(data-field="owner") 学生
-              tbody
-                tr(v-for='seat in cls.seat')
-                  td {{seat.id}}
-                  td {{seat.x}}
-                  td {{seat.y}}
-                  td {{seat.gx}}
-                  td {{seat.gy}}
-                  td {{seat.owner.join(",")}}
-  script(type="text/javascript").
+                  td(@click="locate(stu.sid)") {{stu.name}}
+                  td {{stu.sex}}
+                  td {{stu.seat || '未定'}}
+          div(style={'overflow-x':'scroll'}).col.s8
+              table.responsive-table.hoverable.bordered.striped.centered#score
+                  thead
+                      tr
+                  tbody
+                      tr(v-for='stu in cls.student', :id="'sc'+stu.sid")
+    style(type="text/css").
+      .focus {
+          color: blue;
+          font-weight: bold;
+      }
+    script(type="text/javascript").
       var id = $('#id').html();
       id = parseInt(id).toString();
+      function locate() {
+          var focus = location.hash.replace(/[^0-9]/ig, "");
+          if (focus) {
+              var locateObj = $('#s' + focus);
+              if (locateObj.length) {
+                  $('body').animate({
+                      scrollTop: locateObj.offset().top - $('.navbar-fixed').height(),
+                  }, 1000);
+                  locateObj.addClass('focus');
+                  $('#sc' + focus).addClass('focus');
+              } else {
+                  setTimeout(locate, 500);
+              }
+          }
+      }
+      locate();
       $.getJSON("/api?query={class(id:" + id +
-          "){name,student{id,sid,name},seat{id,x,y,gx,gy,owner}}}", function (data) {
+          "){name,student{sid,name,sex,seat,score},score}}", function (data) {
           var cls = data.data.class;
           if (!cls) return $("#main").html("<h1 class=\"shadow\">Class does not exist.</h1>");
           document.title = cls.name;
+          var score = [];
+          $.each(cls.score, function (_, data) {
+              $("<th nowrap>" + data + "</th>").appendTo("#score > thead > tr");
+              $("<td>{{stu.scoreObj['" + data + "'] | limited}}</td>").appendTo("#score > tbody > tr");
+          });
+          $.each(cls.student, function (_, data) {
+              data.scoreObj = JSON.parse(data.score);
+          });
+          Vue.filter('limited', function (value) {
+              return Math.round(value) || '';
+          })
           var app = new Vue({
               el: '#main',
               data: {
                   class_name: cls.name,
-                  cls: cls
+                  cls: cls,
+              },
+              methods: {
+                  locate: function (id) {
+                      location.href = '#stu' + id;
+                      if ($('.focus')) {
+                          $('.focus').removeClass('focus');
+                      }
+                      locate();
+                  }
               }
           });
       }).error(function (err) {

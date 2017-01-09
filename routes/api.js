@@ -5,50 +5,81 @@ const router = express.Router();
 const logger = require('log4js').getLogger('api');
 const graphqlHTTP = require('express-graphql');
 const _ = require('lodash');
-const root = JSON.parse(fs.readFileSync('./db.json'));
+const root = JSON.parse(fs.readFileSync('./db/db.json'));
 const classes = root.classes;
 const db = new alasql.Database();
-const cids = {};
+
+const xlsx = require('xlsx');
+const dbUrl = fs.readFileSync('./db/data.txt');
+const workbook = xlsx.readFile('./db/' + dbUrl);
+const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+let headers = {};
+let data = {};
+Object.keys(worksheet)
+    .filter(k => k[0] !== '!')
+    .forEach(k => {
+        let col = k.substring(0, 1).charCodeAt(0) - 65;
+        let row = parseInt(k.substring(1));
+        let value = worksheet[k].v;
+        if (row === 1) {
+            headers[col] = value;
+            return;
+        }
+        if (!data[row]) {
+            data[row] = {};
+        }
+        data[row][headers[col]] = value;
+    });
 
 db.exec('CREATE TABLE classes (id INT PRIMARY KEY, name STRING)');
-db.exec('CREATE TABLE students (id INT AUTO_INCREMENT PRIMARY KEY, cid INT, sid STRING, name STRING)');
 
-for (let c in classes) {
-    let cd = parseInt(c);
-    let cls = classes[c];
-    cids[cd] = cls.name;
-    let stuName = 'cls_stu_' + cd;
-    let seatName = 'cls_seat_' + cd;
-    logger.info('Loading class #' + cd + ' -> ' + cls.name);
-    db.tables["classes"].data.push({
-        id: cd,
-        name: cls.name
-    });
-    db.exec('CREATE TABLE ' + stuName + ' (id INT PRIMARY KEY, sid STRING, name STRING)');
-    for (let stu in cls.students) {
-        db.tables[stuName].data.push({
-            id: stu,
-            sid: cls.students[stu].id,
-            name: cls.students[stu].name
-        });
-        db.exec('INSERT INTO students VALUES ?', [{
-            cid: cd,
-            sid: cls.students[stu].id,
-            name: cls.students[stu].name
-        }]);
-    }
-    db.exec('CREATE TABLE ' + seatName + ' (id INT PRIMARY KEY, x NUMBER, y NUMBER, gx INT, gy INT, owner STRING)');
-    for (let seat in cls.seats) {
-        db.tables[seatName].data.push({
-            id: seat,
-            x: cls.seats[seat].x,
-            y: cls.seats[seat].y,
-            gx: cls.seats[seat].gx,
-            gy: cls.seats[seat].gy,
-            owner: cls.seats[seat].owner
-        });
-    }
+data = _.toArray(data);
+headers = _.toArray(headers);
+const cids = {};
+const clsMap = {};
+_.chain(data)
+    .map(obj => obj[headers[0]])
+    .filter(obj => obj)
+    .uniq()
+    .forEach(obj => {
+        let cls = {
+            id: obj.replace(/[^0-9]/ig, ""),
+            name: obj
+        };
+        db.tables["classes"].data.push(cls);
+        clsMap[cls.name] = parseInt(cls.id);
+        cids[cls.id] = cls.name;
+    })
+    .value();
+
+db.exec('CREATE TABLE students (id INT AUTO_INCREMENT PRIMARY KEY, cid INT, name STRING, sex STRING, sid INT, seat INT, score STRING)');
+const scoreHeaders = [];
+for (let i = 5; i < headers.length; i++) {
+    scoreHeaders.push(headers[i]);
 }
+for (let k in data) {
+    let stu = data[k];
+    let objScore = {};
+    for (let h in scoreHeaders) {
+        let key = scoreHeaders[h];
+        objScore[key] = stu[key];
+    }
+    db.exec('INSERT INTO students VALUES ?', [{
+        cid: clsMap[stu[headers[0]]],
+        name: stu[headers[1]],
+        sid: stu[headers[2]],
+        sex: stu[headers[3]],
+        seat: stu[headers[4]],
+        score: JSON.stringify(objScore)
+    }]);
+}
+
+const clsGroup = db.exec('select name, cn from (select cid, COUNT(cid) as cn from students group by cid) join classes on cid = id');
+_.forEach(clsGroup, obj => {
+    logger.info('#CLASS ' + obj['name'] + ', ' + obj['cn']);
+});
+logger.info('Loaded students, total: ' + data.length);
 
 // GraphQL Declaration
 
@@ -74,12 +105,24 @@ const StudentType = new GraphQLObjectType({
             type: new GraphQLNonNull(GraphQLID)
         },
         cid: {
-            type: GraphQLString
+            type: GraphQLInt
         },
-        sid: {
+        cname: {
             type: GraphQLString
         },
         name: {
+            type: GraphQLString
+        },
+        sex: {
+            type: GraphQLString
+        },
+        sid: {
+            type: GraphQLInt
+        },
+        seat: {
+            type: GraphQLString
+        },
+        score: {
             type: GraphQLString
         },
     })
@@ -121,9 +164,9 @@ const ClassType = new GraphQLObjectType({
         student: {
             type: new GraphQLList(StudentType)
         },
-        seat: {
-            type: new GraphQLList(SeatType)
-        },
+        score: {
+            type: new GraphQLList(GraphQLString)
+        }
     })
 });
 
@@ -156,26 +199,9 @@ const queryType = new GraphQLObjectType({
                 return {
                     id: id,
                     name: cids[id],
-                    student: db.exec('SELECT * FROM cls_stu_' + args.id + ' '),
-                    seat: db.exec('SELECT * FROM cls_seat_' + args.id + ' ')
+                    student: db.exec('SELECT * FROM students WHERE cid = ' + id),
+                    score: scoreHeaders
                 };
-            }
-        },
-        students: {
-            type: new GraphQLList(StudentType),
-            description: 'Get students by class id',
-            args: {
-                id: {
-                    type: GraphQLInt
-                }
-            },
-            resolve: (_, args) => {
-                let id = args.id;
-                id = parseInt(id);
-                if (!cids.hasOwnProperty(id)) {
-                    return [];
-                }
-                return db.exec('SELECT * FROM cls_stu_' + args.id + ' ');
             }
         },
         studentsByName: {
@@ -187,27 +213,17 @@ const queryType = new GraphQLObjectType({
                 }
             },
             resolve: (_, args) => {
-                return db.exec('SELECT s.id,s.sid,s.name,c.name AS cid FROM students AS s ' +
-                    'LEFT JOIN classes AS c ON s.cid = c.id WHERE s.name LIKE "%' + args.name + '%" ');
+                return db.exec('SELECT s.id,s.sid,s.cid,s.name,s.sex,c.name AS cname FROM students AS s ' +
+                    'LEFT JOIN classes AS c ON s.cid = c.id WHERE s.name LIKE "%' + args.name + '%" ORDER BY s.cid ASC, s.id ASC');
             }
         },
-        seats: {
-            type: new GraphQLList(SeatType),
-            description: 'Get seats by class id',
-            args: {
-                id: {
-                    type: GraphQLInt
-                }
-            },
-            resolve: (_, args) => {
-                let id = args.id;
-                id = parseInt(id);
-                if (!cids.hasOwnProperty(id)) {
-                    return [];
-                }
-                return db.exec('SELECT * FROM cls_seat_' + args.id + ' ');
+        score: {
+            type: new GraphQLList(GraphQLString),
+            description: 'Get score list',
+            resolve: () => {
+                return scoreHeaders;
             }
-        }
+        },
     })
 });
 

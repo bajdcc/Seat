@@ -41,7 +41,7 @@ html
             var val = $('#search').val();
             if (!val) return;
             $.getJSON("/api?query={studentsByName(name:\"" + val +
-                "\"){id,cid,sid,name}}", function (data) {
+                "\"){cname,cid,sid,name,sex}}", function (data) {
                 var students = data.data.studentsByName;
                 if (!students || !students.length) {
                     modal.$data.title = "没有找到：" + val;
@@ -49,7 +49,7 @@ html
                     modal.$data.show = show;
                 }
                 else {
-                    modal.$data.title = val;
+                    modal.$data.title = "查找：" + val;
                     modal.$data.students = students;
                     modal.$data.popup = true;
                     modal.$data.show = true;
@@ -116,15 +116,16 @@ html
         table.responsive-table.hoverable(:class="{'hide': !show}")
           thead
             tr
-              th(data-field="id") 编号
-              th(data-field="name") 姓名
+              th(data-field="cname") 班级
               th(data-field="sid") 学号
-              th(data-field="cid") 班级
+              th(data-field="name") 姓名
+              th(data-field="sex") 性别
           tbody
             tr(v-for='stu in students')
-              td {{stu.id}}
-              td {{stu.name}}
+              td {{stu.cname}}
               td {{stu.sid}}
-              td {{stu.cid}}
+              td
+                a(:href="'/class/'+stu.cid+'#'+stu.sid") {{stu.name}}
+              td {{stu.sex}}
       .modal-footer
         a.modal-action.modal-close.waves-effect.waves-green.btn-flat(href='#') 关闭
