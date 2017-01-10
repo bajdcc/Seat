@@ -1,0 +1,191 @@
+extends layout
+
+block content
+  #main
+    .row
+    #id.hide= name
+    #graph(style={width: "800px", height: "500px"})
+    .fixed-action-btn(style={top: '0px', right: '30px'})
+        a.btn.teal.lighten-1.waves-effect.waves-light(@click="locate('avg')", v-text="flag.avg") #
+        span |
+        a.btn.teal.lighten-1.waves-effect.waves-light(@click="locate('max')", v-text="flag.max") #
+        span |
+        a.btn.teal.lighten-1.waves-effect.waves-light(@click="locate('min')", v-text="flag.min") #
+  script(type="text/javascript", src="/js/echarts.js")
+  script(type="text/javascript", src="/js/lodash.js")
+  script(type="text/javascript").
+      $(document).ready(function () {
+          var id = $('#id').html();
+          id = parseInt(id).toString();
+          $.get("/api?query={class(id:" + id +
+              "){name,student{score},score}}").done(function (data) {
+              var cls = data.data.class;
+              _.forEach(cls.student, function (data) {
+                  data.scoreObj = JSON.parse(data.score);
+                  _.forEach(cls.score, function (header) {
+                      data.scoreObj[header] = data.scoreObj[header] || null;
+                  });
+              });
+              var scoreList = [];
+              var headers = cls.score;
+              _.forEach(headers, function (header) {
+                  var tmpList = _.chain(cls.student)
+                      .map(function (obj) {
+                          return obj.scoreObj[header];
+                      })
+                      .filter(function (obj) {
+                          return obj;
+                      })
+                      .value();
+                  scoreList.push({
+                      max: new Number(_.max(tmpList)).toFixed(2),
+                      min: new Number(_.min(tmpList)).toFixed(2),
+                      avg: new Number(_.mean(tmpList)).toFixed(2)
+                  });
+              });
+              var focus = location.hash.replace(/[^a-z]/ig, "");
+              var flags = {
+                  max: "最大值",
+                  min: "最小值",
+                  avg: "平均值",
+              };
+              if (!focus.match(/max|min|avg/g)) {
+                  focus = 'avg';
+              }
+              var shadowBar = _.times(scoreList.length, _.constant(110));
+              var dataBar = _.map(scoreList, function (obj) {
+                  return obj[focus] || null;
+              });
+              var app = new Vue({
+                  el: '#main',
+                  data: {
+                      class_name: cls.name,
+                      cls: cls,
+                      flag: flags
+                  },
+                  methods: {
+                      locate: function (id) {
+                          location.href = '#' + id;
+                          location.reload();
+                      }
+                  }
+              });
+              $("#graph").css("width", $("body").width() + "px");
+              var myChart = echarts.init(document.getElementById('graph'));
+              myChart.setOption({
+                  title: {
+                      text: "成绩统计",
+                      subtext: cls.name,
+                      textStyle: {
+                          fontSize: 24
+                      },
+                      subtextStyle: {
+                          fontSize: 12
+                      },
+                      sublink: '../' + id,
+                      subtarget: "self",
+                      left: 'center',
+                  },
+                  toolbox: {
+                      feature: {
+                          dataZoom: {
+                              yAxisIndex: 'none'
+                          },
+                          restore: {},
+                          saveAsImage: {}
+                      }
+                  },
+                  tooltip: {
+                      trigger: 'axis',
+                      formatter: "{b1} {c1}",
+                      axisPointer: {
+                          axis: "x",
+                          type: "shadow",
+                          animation: true
+                      }
+                  },
+                  xAxis: {
+                      data: headers,
+                      axisTick: {
+                          show: false
+                      },
+                      axisLine: {
+                          show: true
+                      },
+                      z: 10
+                  },
+                  yAxis: {
+                      name: flags[focus],
+                      type: 'value',
+                      interval: 10,
+                      max: 110,
+                      axisLine: {
+                          show: false
+                      },
+                      axisTick: {
+                          show: false
+                      },
+                  },
+                  dataZoom: [{
+                      type: 'slider',
+                      show: true,
+                      xAxisIndex: [0],
+                  }, {
+                      type: 'inside',
+                      xAxisIndex: [0],
+                  },],
+                  series: [{
+                      type: 'bar',
+                      itemStyle: {
+                          normal: {color: 'rgba(0,0,0,0.05)'}
+                      },
+                      barGap: '-100%',
+                      barCategoryGap: '40%',
+                      data: shadowBar,
+                      animation: false
+                  }, {
+                      type: 'bar',
+                      label: {
+                          normal: {
+                              show: true,
+                              position: 'outside'
+                          }
+                      },
+                      itemStyle: {
+                          normal: {
+                              color: new echarts.graphic.LinearGradient(
+                                  0, 0, 0, 1,
+                                  [
+                                      {offset: 0, color: '#ee6e73'},
+                                      {offset: 0.5, color: '#e51c23'},
+                                      {offset: 1, color: '#d0181e'}
+                                  ]
+                              )
+                          },
+                          emphasis: {
+                              color: new echarts.graphic.LinearGradient(
+                                  0, 0, 0, 1,
+                                  [
+                                      {offset: 0, color: '#d0181e'},
+                                      {offset: 0.7, color: '#e51c23'},
+                                      {offset: 1, color: '#ea454b'}
+                                  ]
+                              )
+                          }
+                      },
+                      data: dataBar
+                  }]
+              });
+              var zoomSize = 6;
+              myChart.on('click', function (params) {
+                  console.log(headers[Math.max(params.dataIndex - zoomSize / 2, 0)]);
+                  myChart.dispatchAction({
+                      type: 'dataZoom',
+                      startValue: headers[Math.max(params.dataIndex - zoomSize / 2, 0)],
+                      endValue: headers[Math.min(params.dataIndex + zoomSize / 2, data.length - 1)]
+                  });
+              });
+          }).fail(function () {
+              $("#graph").html("<h3>页面出现错误</h3>");
+          });
+      });

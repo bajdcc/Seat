@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 const favicon = require('serve-favicon');
 const logger = require('morgan');
@@ -27,6 +28,7 @@ app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
 app.use(require('less-middleware')(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(compression());
 
 app.use(log4js.connectLogger(log4js.getLogger("app"), {level: log4js.levels.INFO}));
 

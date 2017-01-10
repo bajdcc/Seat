@@ -5,10 +5,10 @@ block content
     .row
       #main.col.s12
         #id.hide= name
-        h1.shadow= '{{class_name}}'
+        h1.shadow(v-text="class_name")
         .row
           .col.s4
-            table.responsive-table.hoverable.bordered.striped
+            table.responsive-table.bordered.striped
               thead
                 tr
                   th(data-field="sid") 学号
@@ -22,11 +22,13 @@ block content
                   td {{stu.sex}}
                   td {{stu.seat || '未定'}}
           div(style={'overflow-x':'scroll'}).col.s8
-              table.responsive-table.hoverable.bordered.striped.centered#score
+              table.responsive-table.bordered.striped.centered#score
                   thead
                       tr
                   tbody
                       tr(v-for='stu in cls.student', :id="'sc'+stu.sid")
+          .fixed-action-btn(style={right: '50px', top: '60px'})
+            a.btn.red.lighten-1.waves-effect.waves-light(:href="'score/'+cid") 图表
     style(type="text/css").
       .focus {
           color: blue;
@@ -70,6 +72,7 @@ block content
           var app = new Vue({
               el: '#main',
               data: {
+                  cid: id,
                   class_name: cls.name,
                   cls: cls,
               },
