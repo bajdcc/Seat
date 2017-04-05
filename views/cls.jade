@@ -71,7 +71,7 @@ block content
               data.scoreObj = JSON.parse(data.score);
           });
           Vue.filter('limited', function (value) {
-              return Math.round(value) || '';
+              return isNaN(value) ? value : Math.round(value);
           })
           var app = new Vue({
               el: '#main',

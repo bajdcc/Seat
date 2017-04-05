@@ -34,7 +34,7 @@ block content
                           return obj.scoreObj[header];
                       })
                       .filter(function (obj) {
-                          return obj;
+                          return !isNaN(obj);
                       })
                       .value();
                   scoreList.push({

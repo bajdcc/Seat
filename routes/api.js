@@ -12,7 +12,7 @@ const db = new alasql.Database();
 const xlsx = require('xlsx');
 const dbUrl = fs.readFileSync('./db/data.txt');
 const workbook = xlsx.readFile('./db/' + dbUrl);
-const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+const worksheet = workbook.Sheets[workbook.SheetNames[1]];
 
 let headers = {};
 let data = {};
@@ -63,7 +63,7 @@ for (let k in data) {
     let objScore = {};
     for (let h in scoreHeaders) {
         let key = scoreHeaders[h];
-        objScore[key] = stu[key];
+        objScore[key] = stu[key] || '-';
     }
     db.exec('INSERT INTO students VALUES ?', [{
         cid: clsMap[stu[headers[0]]],
