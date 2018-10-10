@@ -7,7 +7,7 @@ block content
         #id.hide= name
         h1.shadow(v-text="class_name")
         .row
-          #t1(v-bind:class="{ 's4': show_score, 's12': !show_score }").col
+          #t1(v-bind:class="{ 's4': show_score || show_status, 's12': !(show_score || show_status) }").col
             table.responsive-table.bordered.striped
               thead
                 tr
@@ -27,10 +27,19 @@ block content
                       tr
                   tbody
                       tr(v-for='stu in cls.student', :id="'sc'+stu.sid")
+          #t3(style={'overflow-x':'scroll'}, v-show="show_status", v-bind:class="{ 's8': show_status }").col
+              table.responsive-table.bordered.striped.centered#status
+                  thead
+                      tr
+                  tbody
+                      tr(v-for='stu in cls.student', :id="'s'+stu.sid")
+                          td {{stu.status || '-'}}
           .fixed-action-btn(style={right: '50px', top: '60px'})
             a.btn.red.lighten-1.waves-effect.waves-light(:href="'score/'+cid") 图表
             br
-            a.btn.red.lighten-1.waves-effect.waves-light(href="#", @click="show_score = !show_score") 成绩
+            a.btn.red.lighten-1.waves-effect.waves-light(href="#", @click="show_score = !show_score; show_status=false;") 成绩
+            br
+            a.btn.red.lighten-1.waves-effect.waves-light(href="#", @click="show_status = !show_status; show_score=false;") 计分
             br
             a.btn.red.lighten-1.waves-effect.waves-light(@click="hint") 点名
     style(type="text/css").
@@ -58,7 +67,7 @@ block content
       }
       locate();
       $.getJSON("/api?query={class(id:" + id +
-          "){name,student{sid,name,sex,seat,score},score}}", function (data) {
+          "){name,student{sid,name,sex,seat,status,score},score}}", function (data) {
           var cls = data.data.class;
           if (!cls) return $("#main").html("<h1 class=\"shadow\">Class does not exist.</h1>");
           document.title = cls.name;
@@ -67,6 +76,7 @@ block content
               $("<th nowrap>" + data + "</th>").appendTo("#score > thead > tr");
               $("<td>{{stu.scoreObj['" + data + "'] | limited}}</td>").appendTo("#score > tbody > tr");
           });
+          $("<th nowrap>" + "评分" + "</th>").appendTo("#status > thead > tr");
           $.each(cls.student, function (_, data) {
               data.scoreObj = JSON.parse(data.score);
           });
@@ -79,7 +89,8 @@ block content
                   cid: id,
                   class_name: cls.name,
                   cls: cls,
-                  show_score: false,
+                  show_score: true,
+                  show_status: false
               },
               methods: {
                   locate: function (id) {
